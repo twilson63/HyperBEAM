@@ -16,8 +16,9 @@ start(_StartType, _StartArgs) ->
     su_data:init(),
     Reg = su_registry:start(),
     _TS = su_timestamp:start(),
-    _HTTP = ao_http_router:start([su_http, mu_http, cu_http]),
+    _HTTP = ao_http_router:start([info_http, su_http, mu_http, cu_http]),
     {ok, Reg}.
+    
 
 stop(_State) ->
     ok.

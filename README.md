@@ -1,68 +1,158 @@
-<img src="https://arweave.net/dOpRkKrNNQ4HHebxZlPCo0BWfrjwJ-CEBQs2EPgrwbg" />
+# Go-TPM tools [![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/google/go-tpm-tools)](https://github.com/google/go-tpm-tools/releases)
 
-This repo contains an extremely simple implementation of an AO Scheduling Unit written in Erlang.
+[![Build Status](https://github.com/google/go-tpm-tools/workflows/CI/badge.svg)](https://github.com/google/go-tpm-tools/actions?query=workflow%3ACI)
+[![Go Reference](https://pkg.go.dev/badge/github.com/google/go-tpm-tools.svg)](https://pkg.go.dev/github.com/google/go-tpm-tools)
+![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/google/go-tpm-tools)
+[![Go Report Card](https://goreportcard.com/badge/github.com/google/go-tpm-tools)](https://goreportcard.com/report/github.com/google/go-tpm-tools)
+[![License](https://img.shields.io/badge/LICENSE-Apache2.0-ff69b4.svg)](http://www.apache.org/licenses/LICENSE-2.0.html)
 
-It is not meant to be used as a reference implementation or to be used in a production setting. It is simply a proof of concept to experiment with the speeds that a well-tuned SU implementation should be able to achieve.
+The `go-tpm-tools` module is a [TPM 2.0](https://trustedcomputinggroup.org/resource/trusted-platform-module-2-0-a-brief-introduction/) support library designed to complement [Go-TPM](https://github.com/google/go-tpm).
 
-This implementation reaches speeds of >450 TPS of sustained scheduling throughput _per AO process_ on a single Macbook Pro M2 laptop:
+It contains the following public packages:
+  - [`client`](https://pkg.go.dev/github.com/google/go-tpm-tools/client):
+    A Go package providing simplified abstractions and utility functions for interacting with a TPM 2.0, including:
+      - Signing
+      - Attestation
+      - Reading PCRs
+      - Sealing/Unsealing data
+      - Importing Data and Keys
+      - Reading NVData
+      - Getting the TCG Event Log
+  - [`server`](https://pkg.go.dev/github.com/google/go-tpm-tools/server):
+    A Go package providing functionality for a remote server to send, receive, and interpret TPM 2.0 data. None of the commands in this package issue TPM commands, but instead handle:
+      - TCG Event Log parsing
+      - Attestation verification
+      - Creating data for Importing into a TPM
+  - [`proto`](https://pkg.go.dev/github.com/google/go-tpm-tools/proto):
+    Common [Protocol Buffer](https://developers.google.com/protocol-buffers) messages that are exchanged between the `client` and `server` libraries. This package also contains helper methods for validating these messages.
+  - [`simulator`](https://pkg.go.dev/github.com/google/go-tpm-tools/simulator):
+    Go bindings to the Microsoft's [TPM 2.0 simulator](https://github.com/Microsoft/ms-tpm-20-ref/).
 
-```
-% ab -n 100000 -c 100 -T application/x-www-form-urlencoded -p item.bin http://127.0.0.1:8081/
-This is ApacheBench, Version 2.3 <$Revision: 1903618 $>
-Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/
-Licensed to The Apache Software Foundation, http://www.apache.org/
+This repository also contains `gotpm`, a command line tool for using the TPM.
+Run `gotpm --help` and `gotpm <command> --help` for more documentation.
 
-Benchmarking 127.0.0.1 (be patient)
-Completed 10000 requests
-Completed 20000 requests
-Completed 30000 requests
-Completed 40000 requests
-Completed 50000 requests
-Completed 60000 requests
-Completed 70000 requests
-Completed 80000 requests
-Completed 90000 requests
-Completed 100000 requests
-Finished 100000 requests
+### Use prebuilt `gotpm` binary
 
+You can download the binary from a [release](https://github.com/google/go-tpm-tools/releases) directly.
 
-Server Software:        Cowboy
-Server Hostname:        127.0.0.1
-Server Port:            8081
-
-Document Path:          /
-Document Length:        80 bytes
-
-Concurrency Level:      100
-Time taken for tests:   220.968 seconds
-Complete requests:      100000
-Failed requests:        0
-Total transferred:      22300000 bytes
-Total body sent:        123700000
-HTML transferred:       8000000 bytes
-Requests per second:    452.55 [#/sec] (mean)
-Time per request:       220.968 [ms] (mean)
-Time per request:       2.210 [ms] (mean, across all concurrent requests)
-Transfer rate:          98.55 [Kbytes/sec] received
-                        546.69 kb/s sent
-                        645.24 kb/s total
-
-Connection Times (ms)
-              min  mean[+/-sd] median   max
-Connect:        0    3  63.7      0    1934
-Processing:    12  218  56.1    202     570
-Waiting:       12  218  56.1    202     570
-Total:         12  221  83.0    202    2104
+```bash
+# VERSION: 0.4.4 ARCH: Linux_x86_64
+curl -L https://github.com/google/go-tpm-tools/releases/download/[VERSION]/go-tpm-tools_[ARCH].tar.gz -o go-tpm-tools.tar.gz
+tar xvf go-tpm-tools.tar.gz
+# You may need to copy the binary to a directory with executable permissions.
+# NOTE: on Container-Optimized OS, /var/lib/google/ is executable
+./gotpm --help
 ```
 
-## Building and running
+### Building and Installing `gotpm`
 
-In order to play with the SuperSU implementation, you will need to have Erlang/OTP 26 or later installed, as well as the rebar3 build tool.
+`gotpm` can be directly installed from this repo by running:
+```bash
+go install github.com/google/go-tpm-tools/cmd/gotpm@latest
+# gotpm will be installed to $GOBIN
+gotpm --help
+```
+Alternatively, to build `gotpm` from a cloned version of this repo, run:
+```bash
+cd /my/path/to/cloned/go-tpm-tools/cmd/gotpm
+go build
+# gotpm will be in the cmd/gotpm subdirectory of the repo
+./gotpm --help
+```
 
-Once you have the dependencies installed, you can build the SuperSU implementation with:
+## Minimum Required Go Version
 
-    $ rebar3 compile
+This project currently requires Go 1.20 or newer. Any update to the minimum required Go version will be released as a **minor** version update.
 
-You can then run the SuperSU server with:
+## `openssl` errors when building `simulator`
 
-    $ rebar3 shell
+Similarly, when building the `simulator` library (or tests), you may get an error that looks like:
+```
+fatal error: openssl/aes.h: No such file or directory
+   47 | // #include <openssl/aes.h>
+      |           ^~~~~~~~~~~~~~~~
+compilation terminated.
+```
+This is because the `simulator` library depends on having the [OpenSSL](https://www.openssl.org/) headers installed. To fix this error, install the appropriate header package:
+
+### Linux
+
+```bash
+# Ubuntu/Debian based systems
+sudo apt install libssl-dev
+# Redhat/Centos based systems
+sudo yum install openssl-devel
+# Arch Linux (headers/library in the same package)
+sudo pacman -S openssl
+```
+
+### macOS
+
+First, install [Homebrew](https://brew.sh/). Then run:
+```bash
+brew install openssl
+```
+
+### Windows
+
+First, install [Chocolatey](https://chocolatey.org/). Then run:
+```bash
+choco install openssl
+```
+
+### Custom install location
+
+If you want to use a different installation of OpenSSL, or you are getting
+linker errors like `ld: library not found for -lcrypto`, you can directly
+point Go your installation. We will assume your installation is located at
+`$OPENSSL_PATH` (with `lib` and `include` subdirectories).
+
+#### Add OpenSSL to the include and library path at the command line
+This solution does not require modifying go-tpm-tools code and is useful when
+working on other projects that depend on go-tpm-tools/simulator.
+```
+C_INCLUDE_PATH="$OPENSSL_PATH/include" LIBRARY_PATH="$OPENSSL_PATH/lib" go test ...
+```
+
+#### Add OpenSSL to the include and library path in the code
+This solution modifies your local copy of the go-tpm-tools simulator source
+and removes the need to provide the paths on the command line.
+
+Modify the `CFLAGS`/`LDFLAGS` options beginning with `#cgo darwin` or
+`#cgo windows` in `simulator/internal/internal.go` to point at your
+installation. This could look something like:
+```diff
+// #cgo darwin CFLAGS: -I $OPENSSL_PATH/include
+// #cgo darwin LDFLAGS: -L $OPENSSL_PATH/lib
+```
+Remember to revert your modifications to `simulator/internal/internal.go`
+before committing your changes.
+
+## No TPM 1.2 support
+
+Unlike [Go-TPM](https://github.com/google/go-tpm) (which supports TPM 1.2 and TPM 2.0), this module explicitly only supports TPM 2.0. Users should avoid use of TPM 1.2 due to the inherent reliance on SHA1 (which is [quite broken](https://sha-mbles.github.io/)).
+
+## Confidential VMs with Intel TDX
+For Ubuntu image, the `tdx_guest` module was moved to linux-modules-extra
+package in the 1016 and newer kernels. You should be able to install the module,
+and either manually load the module or reboot.
+
+To install the linux-modules-extra package, run:
+
+```console
+sudo apt-get install linux-modules-extra-gcp
+```
+
+To manually load the module, run:
+
+```console
+sudo modprobe tdx_guest
+```
+
+## Legal
+
+Copyright 2018 Google Inc. under the
+[Apache 2.0 License](https://www.apache.org/licenses/LICENSE-2.0). Microsoft's TPM simulator
+code is licensed under a [3-clause BSD license](https://opensource.org/licenses/BSD-3-Clause) and the [TCG software license](https://trustedcomputinggroup.org/wp-content/uploads/TPM-Rev-2.0-Part-1-Architecture-01.38.pdf). See the [`LICENSE`](LICENSE) file for more information.
+
+This is not an official Google product.

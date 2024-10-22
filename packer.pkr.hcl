@@ -29,9 +29,9 @@ variable "image_family" {
 }
 
 # Source block to define GCP builder
-source "googlecompute" "debian" {
+source "googlecompute" "ubuntu" {
   project_id      = var.project_id
-  source_image_family = "debian-12"  
+  source_image_family = "ubuntu-2204-lts"  
   zone            = var.zone
   machine_type    = "n1-standard-1"
   ssh_username    = "packer"
@@ -39,32 +39,21 @@ source "googlecompute" "debian" {
 
 # Define the build stage
 build {
-  sources = ["source.googlecompute.debian"]
+  sources = ["source.googlecompute.ubuntu"]
 
-  # Install Nginx
-  provisioner "shell" {
+  # Download gotpm and extract on local machine
+  provisioner "local-shell" {
     inline = [
-      "sudo DEBIAN_FRONTEND=noninteractive apt-get update",
-      "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nginx"
+      "wget https://github.com/google/go-tpm-tools/releases/download/v0.4.4/go-tpm-tools_Linux_x86_64.tar.gz",
+      "tar xvf go-tpm-tools_Linux_x86_64.tar.gz"
     ]
   }
 
-  # Configure Nginx as reverse proxy
-  provisioner "shell" {
-    inline = [
-      "sudo bash -c 'cat <<EOF > /etc/nginx/sites-available/ao\nserver {\n    listen 80;\n    server_name _;\n    location / {\n        proxy_pass http://localhost:8734/;\n        proxy_set_header Host \\$host;\n        proxy_set_header X-Real-IP \\$remote_addr;\n    }\n}\nEOF'"
-    ]
+  # Upload the gotpm to the instance
+  provisioner "file" {
+    source      = "./gotpm"
+    destination = "/tmp/gotpm"
   }
-
-  provisioner "shell" {
-    inline = [
-      "sudo ln -s /etc/nginx/sites-available/ao /etc/nginx/sites-enabled/",
-      "sudo rm -f /etc/nginx/sites-enabled/default",
-      "sudo nginx -t",
-      "sudo systemctl restart nginx"
-    ]
-  }
-
 
   # Upload the pre-built release (with ERTS included) to the instance
   provisioner "file" {
@@ -96,5 +85,13 @@ build {
       "sudo systemctl start ao"
     ]
   }
+
+  # Disable ssh
+  # provisioner "shell" {
+  #  inline = [
+  #    "sudo systemctl stop ssh",
+  #    "sudo systemctl disable ssh"
+  #  ]
+  # }
 }
 

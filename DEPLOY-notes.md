@@ -30,3 +30,10 @@ packer init .
 packer validate .
 packer build .
 ```
+
+Install go-tpm-tools
+Install erlinit
+
+possibly build ao project using nerves
+
+replace /sbin/init with erlinit

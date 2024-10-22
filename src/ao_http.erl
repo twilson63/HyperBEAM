@@ -1,7 +1,9 @@
 -module(ao_http).
--export([get/1, get/2, post/3, reply/2, reply/3]).
-
+-export([start/0, get/1, get/2, post/3, reply/2, reply/3]).
 -include("include/ao.hrl").
+
+start() ->
+    httpc:set_options([{max_keep_alive_length, 0}]).
 
 get(Host, Path) -> ?MODULE:get(Host ++ Path).
 get(URL) ->
@@ -16,16 +18,21 @@ get(URL) ->
 
 post(Host, Path, Item) -> post(Host ++ Path, Item).
 post(URL, Item) ->
-    ?c({http_post, ar_util:encode(Item#tx.id), URL}),
+    ?c({http_post, ar_util:id(Item#tx.id), URL}),
     case httpc:request(
         post,
         {URL, [], "application/octet-stream", ar_bundles:serialize(Item)},
         [],
         [{body_format, binary}]
     ) of
-        {ok, {{_, 200, _}, _, Body}} ->
-            ?c({http_post_got, URL}),
-            {ok, ar_bundles:deserialize(Body)};
+        {ok, {{_, Status, _}, _, Body}} when Status == 200; Status == 201 ->
+            {
+                case Status of
+                    200 -> ok;
+                    201 -> created
+                end,
+                ar_bundles:deserialize(Body)
+            };
         Response ->
             ?c({http_post_error, URL, Response}),
             {error, Response}
@@ -38,8 +45,9 @@ reply(Req, Status, Item) ->
             Status,
             maps:get(method, Req, undef_method),
             maps:get(path, Req, undef_path),
-            Ref = case is_record(Item, tx) of true -> ar_util:encode(Item#tx.id); false -> data_body end}
+            Ref = case is_record(Item, tx) of true -> ar_util:id(Item#tx.id); false -> data_body end}
     ),
+    % TODO: Should we return Req or Req2?
     Req2 = cowboy_req:reply(
         Status,
         #{<<"Content-Type">> => <<"application/octet-stream">>},
@@ -47,4 +55,4 @@ reply(Req, Status, Item) ->
         Req
     ),
     ?c({replied, Status, Ref}),
-    {ok, Req}.
+    {ok, Req2}.

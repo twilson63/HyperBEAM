@@ -86,7 +86,7 @@ get_assignments(ProcID, From, To) ->
     {ok, #tx{data = Data}} =
         ao_http:get(
             su_process:get_location(ProcID),
-            "/" ++ binary_to_list(ar_util:encode(ProcID)) ++ "?" ++
+            "/" ++ binary_to_list(ar_util:id(ProcID)) ++ "?" ++
                 case From of
                     undefined -> "";
                     _ -> "&from=" ++
@@ -134,7 +134,7 @@ push(Item) -> push(Item, none).
 push(Item, TracingAtom) when is_atom(TracingAtom) ->
     push(Item, atom_to_list(TracingAtom));
 push(Item, Tracing) ->
-    ?c({push_start, ar_util:encode(Item#tx.id)}),
+    ?c({push_start, ar_util:id(Item#tx.id)}),
     ao_http:post(
         ao:get(mu),
         "/?trace=" ++ Tracing,
@@ -148,7 +148,7 @@ cron(ProcID) ->
 cron(ProcID, Cursor) ->
     cron(ProcID, Cursor, ao:get(default_page_limit)).
 cron(ProcID, Cursor, Limit) when is_binary(ProcID) ->
-    cron(binary_to_list(ar_util:encode(ProcID)), Cursor, Limit);
+    cron(binary_to_list(ar_util:id(ProcID)), Cursor, Limit);
 cron(ProcID, undefined, RawLimit) ->
     cron(ProcID, cron_cursor(ProcID), RawLimit);
 cron(ProcID, Cursor, Limit) ->

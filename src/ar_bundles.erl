@@ -1,5 +1,6 @@
 %%% @doc Module for creating, signing, and verifying Arweave data items and bundles.
 -module(ar_bundles).
+-export([signer/1, is_signed/1]).
 -export([id/1, id/2, type/1, map/1]).
 -export([manifest/1, manifest_item/1, parse_manifest/1]).
 -export([new_item/4, sign_item/2, verify_item/1]).
@@ -11,6 +12,7 @@
 -export([print/1]).
 
 -include("include/ao.hrl").
+-ao_debug(print).
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -37,19 +39,25 @@ print(Item, Indent) when is_list(Item); is_map(Item) ->
 print(Item, Indent) when is_record(Item, tx) ->
     Valid = verify_item(Item),
     print_line(
-        "TX ( ~s:~s ) {",
+        "TX ( ~s: ~s ) {",
         [
             if
-                Item#tx.signature =/= ?DEFAULT_SIG -> "signed";
-                true -> "unsigned"
+                Item#tx.signature =/= ?DEFAULT_SIG -> ar_util:encode(Item#tx.id);
+                true -> "[UNSIGNED]"
             end,
             if
-                Valid == true -> "valid";
-                true -> "INVALID"
+                Valid == true -> "VALID";
+                true -> "[INVALID]"
             end
         ],
         Indent
     ),
+    print_line("Target: ~s", [
+            case Item#tx.target of
+                <<>> -> "[NONE]";
+                Target -> ar_util:id(Target)
+            end
+        ], Indent + 1),
     print_line("Tags:", Indent + 1),
     lists:foreach(
         fun({Key, Val}) -> print_line("~s -> ~s", [Key, Val], Indent + 2) end,
@@ -112,10 +120,16 @@ print_line(Str, Indent) -> print_line(Str, "", Indent).
 print_line(RawStr, Fmt, Ind) ->
     Str = lists:flatten(RawStr),
     io:format(standard_error,
-        "~w " ++ [$\s || _ <- lists:seq(1, Ind * ?INDENT_SPACES)] ++
+        [$\s || _ <- lists:seq(1, Ind * ?INDENT_SPACES)] ++
             Str ++ "\n",
-        [Ind] ++ Fmt
+        Fmt
     ).
+
+signer(Item) ->
+    crypto:hash(sha256, Item#tx.signature).
+
+is_signed(Item) ->
+    Item#tx.signature =/= ?DEFAULT_SIG.
 
 id(Item) when Item#tx.id == ?DEFAULT_ID ->
     id(normalize_data(Item), unsigned);

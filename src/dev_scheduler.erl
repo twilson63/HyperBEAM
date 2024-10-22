@@ -1,5 +1,8 @@
 -module(dev_scheduler).
+%% CU-flow functions:
 -export([init/3, end_of_schedule/1, uses/0, checkpoint/1]).
+%% MU-flow functions:
+-export([push/2]).
 
 -include("include/ao.hrl").
 
@@ -23,11 +26,10 @@ update_schedule(State = #{store := Store, process := Proc, schedule := []}) ->
     ?c({updating_schedule_current, CurrentSlot, to, ToSlot}),
     % TODO: Get from slot via checkpoint
     Assignments = ao_client:get_assignments(Proc#tx.id, CurrentSlot, ToSlot),
-    ?c(got_assignments),
-    ?c({assignments_recvd, length(Assignments)}),
+    ?c({got_assignments_from_su, length(Assignments)}),
     lists:foreach(
         fun(Assignment) ->
-            ?c({writing_recvd_assignment, ar_util:encode(Assignment#tx.id)}),
+            ?c({writing_recvd_assignment, ar_util:id(Assignment#tx.id)}),
             ao_cache:write(Store, Assignment)
         end,
         Assignments
@@ -37,3 +39,13 @@ update_schedule(State = #{store := Store, process := Proc, schedule := []}) ->
 checkpoint(State) -> {ok, State}.
 
 uses() -> all.
+
+%%% MU pushing flow:
+push(Item, State = #{ logger := Logger }) ->
+    case ao_client:schedule(Item) of
+        {_Verb, Assignment} ->
+            {ok, State#{assignment => Assignment}};
+        Error ->
+            ao_logger:log(Logger, Error),
+            {error, Error}
+    end.

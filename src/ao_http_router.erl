@@ -7,6 +7,7 @@
 -ao_debug(no_print).
 
 start(Mods) ->
+    ao_http:start(),
     application:ensure_all_started(cowboy),
     Dispatcher =
         cowboy_router:compile([{'_',
@@ -28,11 +29,10 @@ init(Req, Mod) ->
     Method = cowboy_req:method(Req),
     [_Mod | SplitPath] = split_path(cowboy_req:path(Req)),
     case Mod:handle(Method, SplitPath, Req) of
-        {ok, Req} ->
+        {ok, Req2} ->
             ?c({request_handled, ao:now() - Start}),
-            {ok, Req, <<>>};
-        Other ->
-            Other
+            {ok, Req2, <<>>};
+        Other -> Other
     end.
 
 split_path(Path) ->
